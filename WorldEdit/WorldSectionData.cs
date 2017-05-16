@@ -80,7 +80,9 @@ namespace WorldEdit
 							var frame = (TEItemFrame)TileEntity.ByID[id];
 							ItemFrames.Add(new ItemFrameData
 							{
-								Item = new NetItem(frame.item.netID, frame.item.stack, frame.item.prefix)
+								Item = new NetItem(frame.item.netID, frame.item.stack, frame.item.prefix),
+								X = x,
+								Y = y
 							});
 						}
 					}
