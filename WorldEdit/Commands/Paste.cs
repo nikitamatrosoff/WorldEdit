@@ -60,52 +60,61 @@ namespace WorldEdit.Commands
 					var index2 = j - y;
 
 					Main.tile[i, j] = data.Tiles[index1, index2];
+				}
+			}
 
-					if (data.Signs.Count(s => s.X == index1 && s.Y == index2) != 0)
-					{
-						var sign = data.Signs.First(s => s.X == index1 && s.Y == index2);
-						var id = Sign.ReadSign(i, j);
-						if (id != -1)
-						{
-							Sign.TextSign(id, sign.Text);
-						}
-					}
-					else if (data.ItemFrames.Count(s => s.X == index1 && s.Y == index2) != 0)
-					{
-						var itemFrame = data.ItemFrames.First(s => s.X == index1 && s.Y == index2);
+			foreach (var sign in data.Signs)
+			{
+				var id = Sign.ReadSign(sign.X + x, sign.Y + y);
+				if (id == -1)
+				{
+					continue;
+				}
 
-						var id = TEItemFrame.Place(i, j);
-						if (id != -1)
-						{
-							WorldGen.PlaceObject(i, j, TileID.ItemFrame);
-							var frame = (TEItemFrame)TileEntity.ByID[id];
+				Sign.TextSign(id, sign.Text);
+			}
 
-							frame.item = new Item();
-							frame.item.netDefaults(itemFrame.Item.NetId);
-							frame.item.stack = itemFrame.Item.Stack;
-							frame.item.prefix = itemFrame.Item.PrefixId;
-						}
-					}
-					else if (data.Chests.Count(s => s.X == index1 && s.Y == index2) != 0)
-					{
-						var chest = data.Chests.First(s => s.X == index1 && s.Y == index2);
+			foreach (var itemFrame in data.ItemFrames)
+			{
+				var ifX = itemFrame.X + x;
+				var ifY = itemFrame.Y + y;
 
-						var id = Chest.CreateChest(i, j);
-						if (id != -1)
-						{
-							WorldGen.PlaceChest(i, j);
-							for (var index = 0; index < chest.Items.Length; index++)
-							{
-								var netItem = chest.Items[index];
-								var item = new Item();
-								item.netDefaults(netItem.NetId);
-								item.stack = netItem.Stack;
-								item.prefix = netItem.PrefixId;
-								Main.chest[id].item[index] = item;
+				var id = TEItemFrame.Place(ifX, ifY);
+				if (id == -1)
+				{
+					continue;
+				}
 
-							}
-						}
-					}
+				WorldGen.PlaceObject(ifX, ifY, TileID.ItemFrame);
+				var frame = (TEItemFrame)TileEntity.ByID[id];
+
+				frame.item = new Item();
+				frame.item.netDefaults(itemFrame.Item.NetId);
+				frame.item.stack = itemFrame.Item.Stack;
+				frame.item.prefix = itemFrame.Item.PrefixId;
+			}
+
+			foreach (var chest in data.Chests)
+			{
+				int chestX = chest.X + x, chestY = chest.Y + y;
+
+				int id;
+				if ((id = Chest.FindChest(chestX, chestY)) == -1 &&
+				    (id = Chest.CreateChest(chestX, chestY)) == -1)
+				{
+					continue;
+				}
+
+				WorldGen.PlaceChest(chestX, chestY);
+				for (var index = 0; index < chest.Items.Length; index++)
+				{
+					var netItem = chest.Items[index];
+					var item = new Item();
+					item.netDefaults(netItem.NetId);
+					item.stack = netItem.Stack;
+					item.prefix = netItem.PrefixId;
+					Main.chest[id].item[index] = item;
+
 				}
 			}
 

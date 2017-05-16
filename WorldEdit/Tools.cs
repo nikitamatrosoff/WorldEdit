@@ -113,31 +113,35 @@ namespace WorldEdit
 						worldData.Tiles[i, j] = reader.ReadTile();
 				}
 
-				if (reader.PeekChar() == -1) // for old version
+				try
+				{
+					var signCount = reader.ReadInt32();
+					worldData.Signs = new WorldSectionData.SignData[signCount];
+					for (var i = 0; i < signCount; i++)
+					{
+						worldData.Signs[i] = reader.ReadSign();
+					}
+
+					var chestCount = reader.ReadInt32();
+					worldData.Chests = new WorldSectionData.ChestData[chestCount];
+					for (var i = 0; i < chestCount; i++)
+					{
+						worldData.Chests[i] = reader.ReadChest();
+					}
+
+					var itemFrameCount = reader.ReadInt32();
+					worldData.ItemFrames = new WorldSectionData.ItemFrameData[itemFrameCount];
+					for (var i = 0; i < itemFrameCount; i++)
+					{
+						worldData.ItemFrames[i] = reader.ReadItemFrame();
+					}
+
 					return worldData;
-
-				var signCount = reader.ReadInt32();
-				worldData.Signs = new WorldSectionData.SignData[signCount];
-				for (var i = 0; i < signCount; i++)
-				{
-					worldData.Signs[i] = reader.ReadSign();
 				}
-
-				var chestCount = reader.ReadInt32();
-				worldData.Chests = new WorldSectionData.ChestData[chestCount];
-				for (var i = 0; i < chestCount; i++)
+				catch (EndOfStreamException) // old version file
 				{
-					worldData.Chests[i] = reader.ReadChest();
+					return worldData;
 				}
-
-				var itemFrameCount = reader.ReadInt32();
-				worldData.ItemFrames = new WorldSectionData.ItemFrameData[itemFrameCount];
-				for (var i = 0; i < itemFrameCount; i++)
-				{
-					worldData.ItemFrames[i] = reader.ReadItemFrame();
-				}
-
-				return worldData;
 			}
 		}
 
@@ -254,15 +258,16 @@ namespace WorldEdit
 
 			foreach (var chest in data.Chests)
 			{
-				int x = chest.X + data.X, y = chest.Y + data.Y;
+				int chestX = chest.X + data.X, chestY = chest.Y + data.Y;
 
-				var id = Chest.CreateChest(x, y);
-				if (id == -1)
+				int id;
+				if ((id = Chest.FindChest(chestX, chestY)) == -1 &&
+				    (id = Chest.CreateChest(chestX, chestY)) == -1)
 				{
 					continue;
 				}
 
-				WorldGen.PlaceChest(x, y);
+				WorldGen.PlaceChest(chestX, chestY);
 				for (var index = 0; index < chest.Items.Length; index++)
 				{
 					var netItem = chest.Items[index];
@@ -274,6 +279,7 @@ namespace WorldEdit
 
 				}
 			}
+
 			ResetSection(data.X, data.Y, data.X + data.Width, data.Y + data.Height);
 		}
 
