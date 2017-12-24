@@ -469,12 +469,12 @@ namespace WorldEdit
 			{
 				PlayerInfo info = plr.GetPlayerInfo();
 
-				int X = Math.Min(info.X, info.X2);
-				int Y = Math.Min(info.Y, info.Y2);
-				int X2 = Math.Max(info.X, info.X2);
-				int Y2 = Math.Max(info.Y, info.Y2);
+				int x = Math.Min(info.X, info.X2);
+				int y = Math.Min(info.Y, info.Y2);
+				int x2 = Math.Max(info.X, info.X2);
+				int y2 = Math.Max(info.Y, info.Y2);
 
-				Vector2 center = new Vector2((float)(X2 - X) / 2, (float)(Y2 - Y) / 2);
+				Vector2 center = new Vector2((float)(x2 - x) / 2, (float)(y2 - y) / 2);
 				float major = Math.Max(center.X, center.Y);
 				float minor = Math.Min(center.X, center.Y);
 				if (center.Y > center.X)
@@ -483,7 +483,7 @@ namespace WorldEdit
 					major = minor;
 					minor = temp;
 				}
-				return (i - center.X - X) * (i - center.X - X) / (major * major) + (j - center.Y - Y) * (j - center.Y - Y) / (minor * minor) <= 1;
+				return (i - center.X - x) * (i - center.X - x) / (major * major) + (j - center.Y - y) * (j - center.Y - y) / (minor * minor) <= 1;
 			});
 			Selections.Add("normal", (i, j, plr) => true);
 			Selections.Add("border", (i, j, plr) =>
@@ -504,19 +504,19 @@ namespace WorldEdit
 			{
 				PlayerInfo info = plr.GetPlayerInfo();
 
-				int X = Math.Min(info.X, info.X2);
-				int Y = Math.Min(info.Y, info.Y2);
+				int x = Math.Min(info.X, info.X2);
+				int y = Math.Min(info.Y, info.Y2);
 
-				return (i - X) == (j - Y);
+				return (i - x) == (j - y);
 			});
 			Selections.Add("225", (i, j, plr) =>
 			{
 				PlayerInfo info = plr.GetPlayerInfo();
 
-				int Y = Math.Min(info.Y, info.Y2);
-				int X2 = Math.Max(info.X, info.X2);
+				int y = Math.Min(info.Y, info.Y2);
+				int x2 = Math.Max(info.X, info.X2);
 
-				return (X2 - i) == (j - Y);
+				return (x2 - i) == (j - y);
 			});
 			#endregion
 			#region Tiles
@@ -759,7 +759,7 @@ namespace WorldEdit
 		{
 			if (e.Parameters.Count != 1)
 				e.Player.SendErrorMessage("Invalid syntax! Proper syntax: //flip <direction>");
-			else if (!Tools.HasClipboard(e.Player.User.ID))
+			else if (!Tools.HasClipboard(e.Player.Account.ID))
 				e.Player.SendErrorMessage("Invalid clipboard!");
 			else
 			{
@@ -984,7 +984,7 @@ namespace WorldEdit
 			e.Player.SendInfoMessage("X: {0}, Y: {1}", info.X, info.Y);
 			if (info.X == -1 || info.Y == -1)
 				e.Player.SendErrorMessage("Invalid first point!");
-			else if (!Tools.HasClipboard(e.Player.User.ID))
+			else if (!Tools.HasClipboard(e.Player.Account.ID))
 				e.Player.SendErrorMessage("Invalid clipboard!");
 			else
 			{
@@ -1097,23 +1097,24 @@ namespace WorldEdit
 			}
 
 			int steps = 1;
-			int ID = e.Player.User.ID;
+			int id = e.Player.Account.ID;
 			if (e.Parameters.Count > 0 && (!int.TryParse(e.Parameters[0], out steps) || steps <= 0))
 				e.Player.SendErrorMessage("Invalid redo steps '{0}'!", e.Parameters[0]);
 			else
 			{
 				if (e.Parameters.Count > 1)
 				{
-					User User = TShock.Users.GetUserByName(e.Parameters[1]);
-					if (User == null)
+					var account = TShock.UserAccounts.GetUserAccountByName(e.Parameters[1]);
+					if (account == null)
 					{
 						e.Player.SendErrorMessage("Invalid account name!");
 						return;
 					}
-					ID = User.ID;
+
+					id = account.ID;
 				}
 			}
-			_commandQueue.Add(new Redo(e.Player, ID, steps));
+			_commandQueue.Add(new Redo(e.Player, id, steps));
 		}
 
 		private void RegionCmd(CommandArgs e)
@@ -1213,7 +1214,7 @@ namespace WorldEdit
 				e.Player.SendErrorMessage("Invalid syntax! Proper syntax: //rotate <angle>");
 				return;
 			}
-			if (!Tools.HasClipboard(e.Player.User.ID))
+			if (!Tools.HasClipboard(e.Player.Account.ID))
 			{
 				e.Player.SendErrorMessage("Invalid clipboard!");
 				return;
@@ -1233,7 +1234,7 @@ namespace WorldEdit
 				e.Player.SendErrorMessage("Invalid syntax! Proper syntax: //scale <amount>");
 				return;
 			}
-			if (!Tools.HasClipboard(e.Player.User.ID))
+			if (!Tools.HasClipboard(e.Player.Account.ID))
 			{
 				e.Player.SendErrorMessage("Invalid clipboard!");
 				return;
@@ -1315,7 +1316,7 @@ namespace WorldEdit
 
 						var path = Path.Combine("worldedit", string.Format(fileFormat, e.Parameters[1]));
 
-						var clipboard = Tools.GetClipboardPath(e.Player.User.ID);
+						var clipboard = Tools.GetClipboardPath(e.Player.Account.ID);
 
 						if (File.Exists(path))
 						{
@@ -1339,7 +1340,7 @@ namespace WorldEdit
 							return;
 						}
 
-						string clipboard = Tools.GetClipboardPath(e.Player.User.ID);
+						string clipboard = Tools.GetClipboardPath(e.Player.Account.ID);
 
 						if (!File.Exists(clipboard))
 						{
@@ -1611,19 +1612,19 @@ namespace WorldEdit
 				return;
 			}
 
-			bool Plus = false;
-			int Expr = 0;
+			bool plus = false;
+			int expr = 0;
 			Expression expression = null;
 			if (e.Parameters.Count > 0)
 			{
 				if (e.Parameters[0] == "+")
 				{
-					Plus = true;
-					Expr = 1;
+					plus = true;
+					expr = 1;
 				}
-				if (e.Parameters.Count > Expr)
+				if (e.Parameters.Count > expr)
 				{
-					if (!Parser.TryParseTree(e.Parameters.Skip(Expr), out expression))
+					if (!Parser.TryParseTree(e.Parameters.Skip(expr), out expression))
 					{
 						e.Player.SendErrorMessage("Invalid expression!");
 						return;
@@ -1631,7 +1632,7 @@ namespace WorldEdit
 				}
 			}
 
-			_commandQueue.Add(new Smooth(info.X, info.Y, info.X2, info.Y2, e.Player, expression, Plus));
+			_commandQueue.Add(new Smooth(info.X, info.Y, info.X2, info.Y2, e.Player, expression, plus));
 		}
 
 		private void Inactive(CommandArgs e)
@@ -1732,20 +1733,21 @@ namespace WorldEdit
 			}
 
 			int steps = 1;
-			int ID = e.Player.User.ID;
+			int id = e.Player.Account.ID;
 			if (e.Parameters.Count > 0 && (!int.TryParse(e.Parameters[0], out steps) || steps <= 0))
 				e.Player.SendErrorMessage("Invalid undo steps '{0}'!", e.Parameters[0]);
 			else if (e.Parameters.Count > 1)
 			{
-				User User = TShock.Users.GetUserByName(e.Parameters[1]);
-				if (User == null)
+				var account = TShock.UserAccounts.GetUserAccountByName(e.Parameters[1]);
+				if (account == null)
 				{
 					e.Player.SendErrorMessage("Invalid account name!");
 					return;
 				}
-				ID = User.ID;
+
+				id = account.ID;
 			}
-			_commandQueue.Add(new Undo(e.Player, ID, steps));
+			_commandQueue.Add(new Undo(e.Player, id, steps));
 		}
 	}
 }
