@@ -1,28 +1,21 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Text;
-using System.Threading;
-using Microsoft.Xna.Framework;
-using Mono.Data.Sqlite;
-using MySql.Data.MySqlClient;
 using Terraria;
 using Terraria.ID;
-using Terraria.Utilities;
-using TerrariaApi.Server;
 using TShockAPI;
 using TShockAPI.DB;
-using WorldEdit.Commands;
+using Microsoft.Xna.Framework;
+using OTAPI.Tile;
 
 namespace WorldEdit
 {
 	public delegate bool Selection(int i, int j, TSPlayer player);
 
-	public class WorldEdit
+	public static class WorldEdit
 	{
 		public const string WorldEditFolderName = "worldedit";
 
@@ -33,11 +26,8 @@ namespace WorldEdit
 		public static Dictionary<string, int> Walls = new Dictionary<string, int>();
 		public static Dictionary<string, int> Slopes = new Dictionary<string, int>();
 
-		private void OnInitialize(EventArgs e)
+		public void Initialize()
 		{
-            if (!Directory.Exists(WorldEditFolderName))
-                Directory.CreateDirectory(WorldEditFolderName);
-
 			#region Colors
 			Colors.Add("blank", 0);
 
@@ -131,13 +121,6 @@ namespace WorldEdit
 			}
 			#endregion
 		}
-
-        public void Copy()
-        {
-            string clipboardPath = Tools.GetClipboardPath(plr.User.ID);
-
-            Tools.SaveWorldSection(x, y, x2, y2, clipboardPath);
-        }
 
         public void Paste()
         {
@@ -267,53 +250,6 @@ namespace WorldEdit
             e.Player.SendSuccessMessage("Loaded schematic '{0}' to clipboard.", e.Parameters[1]);
         }
 
-        public void Set()
-        {
-            Tools.PrepareUndo(x, y, x2, y2, plr);
-            int edits = 0;
-            for (int i = x; i <= x2; i++)
-            {
-                for (int j = y; j <= y2; j++)
-                {
-                    var tile = Main.tile[i, j];
-                    if (((tileType >= 0 && (!tile.active() || tile.type != tileType)) ||
-                        (tileType == -1 && tile.active()) ||
-                        (tileType == -2 && (tile.liquid == 0 || tile.liquidType() != 1)) ||
-                        (tileType == -3 && (tile.liquid == 0 || tile.liquidType() != 2)) ||
-                        (tileType == -4 && (tile.liquid == 0 || tile.liquidType() != 0))) &&
-                        select(i, j, plr) && expression.Evaluate(tile))
-                    {
-                        SetTile(i, j, tileType);
-                        edits++;
-                    }
-                }
-            }
-            ResetSection();
-            plr.SendSuccessMessage("Set tiles. ({0})", edits);
-        }
-
-        public void SetWall()
-        {
-            Tools.PrepareUndo(x, y, x2, y2, plr);
-            int edits = 0;
-            for (int i = x; i <= x2; i++)
-            {
-                for (int j = y; j <= y2; j++)
-                {
-                    var tile = Main.tile[i, j];
-                    if (tile.wall != wallType && select(i, j, plr) && expression.Evaluate(tile))
-                    {
-                        tile.wall = (byte)wallType;
-                        edits++;
-                    }
-                }
-            }
-            ResetSection();
-
-            string wallName = wallType == 0 ? "air" : "wall " + wallType;
-            plr.SendSuccessMessage("Set walls to {0}. ({1})", wallName, edits);
-        }
-
         public void Cut()
         {
             for (int i = x; i <= x2; i++)
@@ -353,50 +289,63 @@ namespace WorldEdit
             plr.SendSuccessMessage("Cut selection. ({0})", (x2 - x + 1) * (y2 - y + 1));
         }
 
-        public void Paint()
+
+        
+
+        public static void Copy(Rectangle from, Rectangle to)
         {
-            Tools.PrepareUndo(x, y, x2, y2, plr);
-            int edits = 0;
+
+        }
+
+        public static void Paste(string schematic, Rectangle to)
+        {
+
+        }
+
+        public static void Set(int x, int y, int x2, int y2, int tile, int wall, int tilepaint, int wallpaint, Selection select)
+        {
             for (int i = x; i <= x2; i++)
             {
                 for (int j = y; j <= y2; j++)
                 {
-                    var tile = Main.tile[i, j];
-                    if (tile.active() && tile.color() != color && select(i, j, plr) && expression.Evaluate(tile))
+                    ITile Tile = Main.tile[i, j];
+                    if (select(i, j, plr))
                     {
-                        tile.color((byte)color);
-                        edits++;
+                        
                     }
                 }
             }
-            ResetSection();
-            plr.SendSuccessMessage("Painted tiles. ({0})", edits);
+            Tools.ResetSection(x, y, x2, y2);
         }
 
-        public void PaintWall()
+        public static void SetPaintWall(ITile tile, int color)
         {
-            Tools.PrepareUndo(x, y, x2, y2, plr);
-            int edits = 0;
-            for (int i = x; i <= x2; i++)
-            {
-                for (int j = y; j <= y2; j++)
-                {
-                    var tile = Main.tile[i, j];
-                    if (tile.wall > 0 && tile.wallColor() != color && select(i, j, plr) && expression.Evaluate(tile))
-                    {
-                        tile.wallColor((byte)color);
-                        edits++;
-                    }
-                }
-            }
-            ResetSection();
-            plr.SendSuccessMessage("Painted walls. ({0})", edits);
+            if (tile.wall > 0 && tile.wallColor() != color)
+                tile.wallColor((byte)color);
         }
 
-        public void SetTile(int i, int j, int tileType)
+        public static void SetPaint(ITile tile, int color)
         {
-            var tile = Main.tile[i, j];
-            switch (tileType)
+            if (tile.active() && tile.color() != color)
+                tile.color((byte)color);
+        }
+
+        public static void SetWall(ITile tile, int type)
+        {
+            if (tile.wall != type)
+                tile.wall = (byte)type;
+        }
+
+        public static void SetTile(int x, int y, ITile tile, int type)
+        {
+            if (!((type >= 0 && (!tile.active() || tile.type != type)) ||
+                        (type == -1 && tile.active()) ||
+                        (type == -2 && (tile.liquid == 0 || tile.liquidType() != 1)) ||
+                        (type == -3 && (tile.liquid == 0 || tile.liquidType() != 2)) ||
+                        (type == -4 && (tile.liquid == 0 || tile.liquidType() != 0))))
+                return;
+
+            switch (type)
             {
                 case -1:
                     tile.active(false);
@@ -425,8 +374,8 @@ namespace WorldEdit
                     tile.type = 0;
                     return;
                 default:
-                    if (Main.tileFrameImportant[tileType])
-                        WorldGen.PlaceTile(i, j, tileType);
+                    if (Main.tileFrameImportant[type])
+                        WorldGen.PlaceTile(x, y, type);
                     else
                     {
                         tile.active(true);
@@ -435,25 +384,9 @@ namespace WorldEdit
                         tile.liquidType(0);
                         tile.liquid = 0;
                         tile.slope(0);
-                        tile.type = (ushort)tileType;
+                        tile.type = (ushort)type;
                     }
                     return;
-            }
-        }
-
-        public void ResetSection()
-        {
-            int lowX = Netplay.GetSectionX(x);
-            int highX = Netplay.GetSectionX(x2);
-            int lowY = Netplay.GetSectionY(y);
-            int highY = Netplay.GetSectionY(y2);
-            foreach (RemoteClient sock in Netplay.Clients.Where(s => s.IsActive))
-            {
-                for (int i = lowX; i <= highX; i++)
-                {
-                    for (int j = lowY; j <= highY; j++)
-                        sock.TileSections[i, j] = false;
-                }
             }
         }
     }

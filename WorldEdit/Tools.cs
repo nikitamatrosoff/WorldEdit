@@ -1,15 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
-using System.Linq;
 using OTAPI.Tile;
 using Terraria;
 using TShockAPI;
-using TShockAPI.DB;
 using Terraria.GameContent.Tile_Entities;
 using Terraria.DataStructures;
 using Terraria.ID;
+using System.Linq;
 
 namespace WorldEdit
 {
@@ -269,5 +267,17 @@ namespace WorldEdit
 
 			return data;
 		}
-	}
+
+        public static void ResetSection(int x1, int y1, int x2, int y2)
+        {
+            int lowX = Netplay.GetSectionX(x1);
+            int highX = Netplay.GetSectionX(x2);
+            int lowY = Netplay.GetSectionY(y1);
+            int highY = Netplay.GetSectionY(y2);
+            foreach (RemoteClient sock in Netplay.Clients.Where(s => s.IsActive))
+                for (int i = lowX; i <= highX; i++)
+                    for (int j = lowY; j <= highY; j++)
+                        sock.TileSections[i, j] = false;
+        }
+    }
 }
