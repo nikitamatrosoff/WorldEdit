@@ -16,80 +16,10 @@ namespace WorldEdit
 	public static class Tools
 	{
 		internal const int BUFFER_SIZE = 1048576;
-		private const int MAX_UNDOS = 50;
-
-		private static readonly char[] InvalidFileNameChars = Path.GetInvalidFileNameChars();
 
 		public static string GetClipboardPath(int accountID)
 		{
 			return Path.Combine(WorldEdit.WorldEditFolderName, string.Format("clipboard-{0}.dat", accountID));
-		}
-		public static bool IsCorrectName(string name)
-		{
-			return name.All(c => !InvalidFileNameChars.Contains(c));
-		}
-		public static List<int> GetColorID(string color)
-		{
-			int ID;
-			if (int.TryParse(color, out ID) && ID >= 0 && ID < Main.numTileColors)
-				return new List<int> { ID };
-
-			var list = new List<int>();
-			foreach (var kvp in WorldEdit.Colors)
-			{
-				if (kvp.Key == color)
-					return new List<int> { kvp.Value };
-				if (kvp.Key.StartsWith(color))
-					list.Add(kvp.Value);
-			}
-			return list;
-		}
-		public static List<int> GetTileID(string tile)
-		{
-			int ID;
-			if (int.TryParse(tile, out ID) && ID >= 0 && ID < Main.maxTileSets)
-				return new List<int> { ID };
-
-			var list = new List<int>();
-			foreach (var kvp in WorldEdit.Tiles)
-			{
-				if (kvp.Key == tile)
-					return new List<int> { kvp.Value };
-				if (kvp.Key.StartsWith(tile))
-					list.Add(kvp.Value);
-			}
-			return list;
-		}
-		public static List<int> GetWallID(string wall)
-		{
-			int ID;
-			if (int.TryParse(wall, out ID) && ID >= 0 && ID < Main.maxWallTypes)
-				return new List<int> { ID };
-
-			var list = new List<int>();
-			foreach (var kvp in WorldEdit.Walls)
-			{
-				if (kvp.Key == wall)
-					return new List<int> { kvp.Value };
-				if (kvp.Key.StartsWith(wall))
-					list.Add(kvp.Value);
-			}
-			return list;
-		}
-		public static int GetSlopeID(string slope)
-		{
-			int ID;
-			if (int.TryParse(slope, out ID) && ID >= 0 && ID < 6)
-				return ID;
-
-			if (!WorldEdit.Slopes.TryGetValue(slope, out int Slope)) { return -1; }
-
-			return Slope;
-		}
-
-		public static bool HasClipboard(int accountID)
-		{
-			return File.Exists(GetClipboardPath(accountID));
 		}
 
 		#region LoadWorldSectionData
@@ -283,86 +213,6 @@ namespace WorldEdit
 			ResetSection(data.X, data.Y, data.X + data.Width, data.Y + data.Height);
 		}
 
-		public static void PrepareUndo(int x, int y, int x2, int y2, TSPlayer plr)
-		{
-			if (WorldEdit.Database.GetSqlType() == SqlType.Mysql)
-				WorldEdit.Database.Query("INSERT IGNORE INTO WorldEdit VALUES (@0, -1, -1)", plr.User.ID);
-			else
-				WorldEdit.Database.Query("INSERT OR IGNORE INTO WorldEdit VALUES (@0, 0, 0)", plr.User.ID);
-			WorldEdit.Database.Query("UPDATE WorldEdit SET RedoLevel = -1 WHERE Account = @0", plr.User.ID);
-			WorldEdit.Database.Query("UPDATE WorldEdit SET UndoLevel = UndoLevel + 1 WHERE Account = @0", plr.User.ID);
-
-			int undoLevel = 0;
-			using (var reader = WorldEdit.Database.QueryReader("SELECT UndoLevel FROM WorldEdit WHERE Account = @0", plr.User.ID))
-			{
-				if (reader.Read())
-					undoLevel = reader.Get<int>("UndoLevel");
-			}
-
-			string path = Path.Combine("worldedit", string.Format("undo-{0}-{1}.dat", plr.User.ID, undoLevel));
-			SaveWorldSection(x, y, x2, y2, path);
-
-			foreach (string fileName in Directory.EnumerateFiles("worldedit", string.Format("redo-{0}-*.dat", plr.User.ID)))
-				File.Delete(fileName);
-			File.Delete(Path.Combine("worldedit", string.Format("undo-{0}-{1}.dat", plr.User.ID, undoLevel - MAX_UNDOS)));
-		}
-
-		public static bool Redo(int accountID)
-		{
-			int redoLevel = 0;
-			int undoLevel = 0;
-			using (var reader = WorldEdit.Database.QueryReader("SELECT RedoLevel, UndoLevel FROM WorldEdit WHERE Account = @0", accountID))
-			{
-				if (reader.Read())
-				{
-					redoLevel = reader.Get<int>("RedoLevel") - 1;
-					undoLevel = reader.Get<int>("UndoLevel") + 1;
-				}
-				else
-					return false;
-			}
-
-			if (redoLevel < -1)
-				return false;
-
-			string redoPath = Path.Combine("worldedit", string.Format("redo-{0}-{1}.dat", accountID, redoLevel + 1));
-			WorldEdit.Database.Query("UPDATE WorldEdit SET RedoLevel = @0 WHERE Account = @1", redoLevel, accountID);
-
-			if (!File.Exists(redoPath))
-				return false;
-
-			string undoPath = Path.Combine("worldedit", string.Format("undo-{0}-{1}.dat", accountID, undoLevel));
-			WorldEdit.Database.Query("UPDATE WorldEdit SET UndoLevel = @0 WHERE Account = @1", undoLevel, accountID);
-
-			using (var reader = new BinaryReader(new GZipStream(new FileStream(redoPath, FileMode.Open), CompressionMode.Decompress)))
-			{
-				int x = Math.Max(0, reader.ReadInt32());
-				int y = Math.Max(0, reader.ReadInt32());
-				int x2 = Math.Min(x + reader.ReadInt32() - 1, Main.maxTilesX - 1);
-				int y2 = Math.Min(y + reader.ReadInt32() - 1, Main.maxTilesY - 1);
-				SaveWorldSection(x, y, x2, y2, undoPath);
-			}
-			LoadWorldSection(redoPath);
-			File.Delete(redoPath);
-			return true;
-		}
-
-		public static void ResetSection(int x, int y, int x2, int y2)
-		{
-			int lowX = Netplay.GetSectionX(x);
-			int highX = Netplay.GetSectionX(x2);
-			int lowY = Netplay.GetSectionY(y);
-			int highY = Netplay.GetSectionY(y2);
-			foreach (RemoteClient sock in Netplay.Clients.Where(s => s.IsActive))
-			{
-				for (int i = lowX; i <= highX; i++)
-				{
-					for (int j = lowY; j <= highY; j++)
-						sock.TileSections[i, j] = false;
-				}
-			}
-		}
-
 		public static void SaveWorldSection(int x, int y, int x2, int y2, string path)
 		{
 			using (var writer =
@@ -418,45 +268,6 @@ namespace WorldEdit
 			}
 
 			return data;
-		}
-
-		public static bool Undo(int accountID)
-		{
-			int redoLevel, undoLevel;
-			using (var reader = WorldEdit.Database.QueryReader("SELECT RedoLevel, UndoLevel FROM WorldEdit WHERE Account = @0", accountID))
-			{
-				if (reader.Read())
-				{
-					redoLevel = reader.Get<int>("RedoLevel") + 1;
-					undoLevel = reader.Get<int>("UndoLevel") - 1;
-				}
-				else
-					return false;
-			}
-
-			if (undoLevel < -1)
-				return false;
-
-			string undoPath = Path.Combine("worldedit", string.Format("undo-{0}-{1}.dat", accountID, undoLevel + 1));
-			WorldEdit.Database.Query("UPDATE WorldEdit SET UndoLevel = @0 WHERE Account = @1", undoLevel, accountID);
-
-			if (!File.Exists(undoPath))
-				return false;
-
-			string redoPath = Path.Combine("worldedit", string.Format("redo-{0}-{1}.dat", accountID, redoLevel));
-			WorldEdit.Database.Query("UPDATE WorldEdit SET RedoLevel = @0 WHERE Account = @1", redoLevel, accountID);
-
-			using (var reader = new BinaryReader(new GZipStream(new FileStream(undoPath, FileMode.Open), CompressionMode.Decompress)))
-			{
-				int x = Math.Max(0, reader.ReadInt32());
-				int y = Math.Max(0, reader.ReadInt32());
-				int x2 = Math.Min(x + reader.ReadInt32() - 1, Main.maxTilesX - 1);
-				int y2 = Math.Min(y + reader.ReadInt32() - 1, Main.maxTilesY - 1);
-				SaveWorldSection(x, y, x2, y2, redoPath);
-			}
-			LoadWorldSection(undoPath);
-			File.Delete(undoPath);
-			return true;
 		}
 	}
 }

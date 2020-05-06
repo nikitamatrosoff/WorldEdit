@@ -60,17 +60,6 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Commands\Activate.cs" />
-    <Compile Include="Commands\Inactive.cs" />
-    <Compile Include="Commands\Cut.cs" />
-    <Compile Include="Commands\PaintWall.cs" />
-    <Compile Include="Commands\Copy.cs" />
-    <Compile Include="Commands\Paint.cs" />
-    <Compile Include="Commands\Paste.cs" />
-    <Compile Include="Commands\SetWall.cs" />
-    <Compile Include="Commands\SetWire.cs" />
-    <Compile Include="Commands\WECommand.cs" />
-    <Compile Include="Commands\Set.cs" />
     <Compile Include="Tools.cs" />
     <Compile Include="WorldEdit.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
